@@ -1,0 +1,133 @@
+package scraper
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/PuerkitoBio/goquery"
+)
+
+type Holiday struct {
+	Date              string `json:"date"`
+	Title             string `json:"title"`
+	IsNationalHoliday bool   `json:"is_national_holiday"`
+}
+
+func generateDateList(startDayStr, endDayStr, monthStr, yearStr string) []string {
+	var result []string
+
+	// Format layout input dan output
+	inputLayout := "2 January 2006"
+	outputLayout := "2006-01-02"
+
+	// Gabungkan untuk parsing
+	startDateStr := fmt.Sprintf("%s %s %s", startDayStr, monthStr, yearStr)
+	endDateStr := fmt.Sprintf("%s %s %s", endDayStr, monthStr, yearStr)
+
+	startDate, err1 := time.Parse(inputLayout, startDateStr)
+	endDate, err2 := time.Parse(inputLayout, endDateStr)
+	if err1 != nil || err2 != nil {
+		return result
+	}
+
+	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
+		result = append(result, d.Format(outputLayout))
+	}
+
+	return result
+}
+
+func expandDateRange(text, currentMonth string, currentYear int) []string {
+	text = strings.ToLower(strings.TrimSpace(text))
+
+	// "2 - 4 april 2025"
+	if strings.Contains(text, "-") {
+		parts := strings.Split(text, "-")
+		if len(parts) == 2 {
+			start := strings.TrimSpace(parts[0])
+			rest := strings.TrimSpace(parts[1]) // example: "4 april 2025"
+			endParts := strings.Fields(rest)
+
+			if len(endParts) >= 3 {
+				endDay, endMonth, endYear := endParts[0], endParts[1], endParts[2]
+				return generateDateList(start, endDay, endMonth, endYear)
+			} else if len(endParts) == 2 {
+				endDay, endMonth := endParts[0], endParts[1]
+				return generateDateList(start, endDay, endMonth, fmt.Sprint(currentYear))
+			} else if len(endParts) == 1 {
+				endDay := endParts[0]
+				return generateDateList(start, endDay, currentMonth, fmt.Sprint(currentYear))
+			}
+		}
+	}
+
+	if strings.Contains(text, " ") {
+		// fallback: try full single date first (e.g., "1 april 2025")
+		if t, err := time.Parse("2 January 2006", text); err == nil {
+			return []string{t.Format("2006-01-02")}
+		}
+
+		// fallback: single day format like "6 april"
+		singleDate, err := time.Parse("2 January", text)
+		if err == nil {
+			singleDate = singleDate.AddDate(currentYear-singleDate.Year(), 0, 0)
+			return []string{singleDate.Format("2006-01-02")}
+		}
+	}
+
+	return nil
+}
+
+func ScrapeMonthlyEvents(month string, year int) ([]Holiday, error) {
+	month = strings.ToLower(month)
+	url := fmt.Sprintf("https://tanggalan.com/%s-%d", month, year)
+
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch data: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status code: %d", res.StatusCode)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	var events []Holiday
+
+	doc.Find("#events > div > .event").Each(func(i int, s *goquery.Selection) {
+		title := strings.TrimSpace(s.Find(".namaevent").Text())
+		if title == "" {
+			return
+		}
+
+		dateText := strings.TrimSpace(s.Find(".tanggal").Text())
+		if dateText == "" {
+			s.Find("div").Each(func(i int, div *goquery.Selection) {
+				if i > 0 && dateText == "" {
+					dateText = strings.TrimSpace(div.Text())
+				}
+			})
+		}
+
+		dateList := expandDateRange(dateText, month, year)
+		fmt.Println(dateList)
+		isNationalHoliday := s.Find(".libur").Length() > 0
+
+		for _, date := range dateList {
+			events = append(events, Holiday{
+				Title:             title,
+				Date:              date,
+				IsNationalHoliday: isNationalHoliday,
+			})
+		}
+	})
+
+	return events, nil
+}

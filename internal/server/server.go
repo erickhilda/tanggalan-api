@@ -8,14 +8,13 @@ import (
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
-
-	"tanggalan-api/internal/database"
+	// "tanggalan-api/internal/database"
 )
 
 type Server struct {
 	port int
 
-	db database.Service
+	// db database.Service
 }
 
 func NewServer() *http.Server {
@@ -23,7 +22,7 @@ func NewServer() *http.Server {
 	NewServer := &Server{
 		port: port,
 
-		db: database.New(),
+		// db: database.New(),
 	}
 
 	// Declare Server config
