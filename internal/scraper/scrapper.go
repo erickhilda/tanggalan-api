@@ -41,10 +41,11 @@ func generateDateList(startDayStr, endDayStr, monthStr, yearStr string) []string
 
 func expandDateRange(text, currentMonth string, currentYear int) []string {
 	text = strings.ToLower(strings.TrimSpace(text))
+	dateStr := TranslateIndoMonth(text)
 
 	// "2 - 4 april 2025"
-	if strings.Contains(text, "-") {
-		parts := strings.Split(text, "-")
+	if strings.Contains(dateStr, "-") {
+		parts := strings.Split(dateStr, "-")
 		if len(parts) == 2 {
 			start := strings.TrimSpace(parts[0])
 			rest := strings.TrimSpace(parts[1]) // example: "4 april 2025"
@@ -63,18 +64,15 @@ func expandDateRange(text, currentMonth string, currentYear int) []string {
 		}
 	}
 
-	if strings.Contains(text, " ") {
-		// fallback: try full single date first (e.g., "1 april 2025")
-		if t, err := time.Parse("2 January 2006", text); err == nil {
-			return []string{t.Format("2006-01-02")}
-		}
+	// fallback: try full single date first (e.g., "1 april 2025")
+	if t, err := time.Parse("2 January 2006", dateStr); err == nil {
+		return []string{t.Format("2006-01-02")}
+	}
 
-		// fallback: single day format like "6 april"
-		singleDate, err := time.Parse("2 January", text)
-		if err == nil {
-			singleDate = singleDate.AddDate(currentYear-singleDate.Year(), 0, 0)
-			return []string{singleDate.Format("2006-01-02")}
-		}
+	// fallback: single day format like "6 april"
+	if t, err := time.Parse("2 January", dateStr); err == nil {
+		t = t.AddDate(currentYear-t.Year(), 0, 0)
+		return []string{t.Format("2006-01-02")}
 	}
 
 	return nil
