@@ -9,51 +9,20 @@ import (
 	"context"
 )
 
-const getAllEvents = `-- name: GetAllEvents :many
-SELECT id, title, date, is_national_holiday FROM events ORDER BY date ASC
-`
-
-func (q *Queries) GetAllEvents(ctx context.Context) ([]Event, error) {
-	rows, err := q.db.QueryContext(ctx, getAllEvents)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Event
-	for rows.Next() {
-		var i Event
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Date,
-			&i.IsNationalHoliday,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getEventsByMonthAndYear = `-- name: GetEventsByMonthAndYear :many
 SELECT id, title, date, is_national_holiday FROM events
-WHERE strftime('%Y', date) = ? AND strftime('%m', date) = ?
+WHERE strftime('%Y', date) = ?1
+  AND strftime('%m', date) = ?2
 ORDER BY date ASC
 `
 
 type GetEventsByMonthAndYearParams struct {
-	Date   string
-	Date_2 string
+	Year  string
+	Month string
 }
 
 func (q *Queries) GetEventsByMonthAndYear(ctx context.Context, arg GetEventsByMonthAndYearParams) ([]Event, error) {
-	rows, err := q.db.QueryContext(ctx, getEventsByMonthAndYear, arg.Date, arg.Date_2)
+	rows, err := q.db.QueryContext(ctx, getEventsByMonthAndYear, arg.Year, arg.Month)
 	if err != nil {
 		return nil, err
 	}
