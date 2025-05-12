@@ -1,28 +1,40 @@
 package server
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	db "tanggalan-api/internal/database"
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
-	// "tanggalan-api/internal/database"
+	_ "modernc.org/sqlite"
 )
 
 type Server struct {
-	port int
-
-	// db database.Service
+	port   int
+	dbConn *sql.DB
+	q      *db.Queries
 }
 
 func NewServer() *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
-	NewServer := &Server{
-		port: port,
 
-		// db: database.New(),
+	// 1. Setup SQLite connection
+	conn, err := sql.Open("sqlite", "./data/tanggalan.db")
+	if err != nil {
+		panic(err)
+	}
+
+	// 2. Setup sqlc queries
+	queries := db.New(conn)
+
+	NewServer := &Server{
+		port:   port,
+		dbConn: conn,
+		q:      queries,
 	}
 
 	// Declare Server config

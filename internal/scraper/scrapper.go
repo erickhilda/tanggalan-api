@@ -1,12 +1,16 @@
 package scraper
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+
+	db "tanggalan-api/internal/database"
 )
 
 type Holiday struct {
@@ -78,7 +82,7 @@ func expandDateRange(text, currentMonth string, currentYear int) []string {
 	return nil
 }
 
-func ScrapeMonthlyEvents(month string, year int) ([]Holiday, error) {
+func ScrapEventByMonthAndYear(month string, year int) ([]Holiday, error) {
 	month = strings.ToLower(month)
 	url := fmt.Sprintf("https://tanggalan.com/%s-%d", month, year)
 
@@ -115,7 +119,6 @@ func ScrapeMonthlyEvents(month string, year int) ([]Holiday, error) {
 		}
 
 		dateList := expandDateRange(dateText, month, year)
-		fmt.Println(dateList)
 		isNationalHoliday := s.Find(".libur").Length() > 0
 
 		for _, date := range dateList {
@@ -128,4 +131,28 @@ func ScrapeMonthlyEvents(month string, year int) ([]Holiday, error) {
 	})
 
 	return events, nil
+}
+
+func SyncEventsFromTanggalan(ctx context.Context, q *db.Queries, month string, year int) (string, error) {
+	events, err := ScrapEventByMonthAndYear(month, year)
+	if err != nil {
+		return "failed", err
+	}
+
+	for _, e := range events {
+		t, err := time.Parse("2006-01-02", e.Date)
+		if err != nil {
+			continue
+		}
+		insertErr := q.InsertEvent(ctx, db.InsertEventParams{
+			Title:             e.Title,
+			Date:              t.Format("2006-01-02"),
+			IsNationalHoliday: e.IsNationalHoliday,
+		})
+		if insertErr != nil {
+			log.Printf("Failed to insert event %s on %s: %v", e.Title, e.Date, err)
+		}
+	}
+
+	return "success", nil
 }
