@@ -21,9 +21,10 @@ type Server struct {
 
 func NewServer() *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	dbPath := os.Getenv("DB_PATH")
 
 	// 1. Setup SQLite connection
-	conn, err := sql.Open("sqlite", "./data/tanggalan.db")
+	conn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		panic(err)
 	}

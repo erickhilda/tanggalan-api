@@ -7,9 +7,20 @@ all: build test
 init-db:
 	sh scripts/init_db.sh
 
+migrate:
+	sh scripts/migrate.sh up
+
+migrate-down:
+	sh scripts/migrate.sh down
+
+migrate-status:
+	sh scripts/migrate.sh status
+
+migrate-new:
+	sh scripts/migrate.sh create $(name) sql
+
 build:
 	@echo "Building..."
-	
 	
 	@go build -o main cmd/api/main.go
 
