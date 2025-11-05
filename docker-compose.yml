@@ -1,15 +1,23 @@
-services:
-  psql_bp:
-    image: postgres:latest
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${BLUEPRINT_DB_DATABASE}
-      POSTGRES_USER: ${BLUEPRINT_DB_USERNAME}
-      POSTGRES_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
-    ports:
-      - "${BLUEPRINT_DB_PORT}:5432"
-    volumes:
-      - psql_volume_bp:/var/lib/postgresql/data
+version: "3.9"
 
-volumes:
-  psql_volume_bp:
+services:
+  tanggalan-api:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "8080:8080"
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    restart: always
+    command: ./server
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    entrypoint: ./scripts/init_db.sh
